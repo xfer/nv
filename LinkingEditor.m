@@ -88,7 +88,12 @@ static long (*GetGetScriptManagerVariablePointer())(short);
 	NSMenu *formatMenu = [[[NSMenu alloc] initWithTitle:NSLocalizedString(@"Format", nil)] autorelease];
 	
 	theMenuItem = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Plain Text Style",nil) 
-											  action:@selector(defaultStyle:) keyEquivalent:@""] autorelease];
+																						action:@selector(defaultStyle:) keyEquivalent:@""] autorelease];
+	[theMenuItem setTarget:self];
+	[formatMenu addItem:theMenuItem];
+	
+	theMenuItem = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Monospaced Style",nil) 
+																						action:@selector(monospacedStyle:) keyEquivalent:@""] autorelease];
 	[theMenuItem setTarget:self];
 	[formatMenu addItem:theMenuItem];
 	
@@ -101,6 +106,10 @@ static long (*GetGetScriptManagerVariablePointer())(short);
 	[formatMenu addItem:theMenuItem];
 	
 	theMenuItem = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Underline",nil) action:@selector(underlineNV:) keyEquivalent:@""] autorelease];
+	[theMenuItem setTarget:self];
+	[formatMenu addItem:theMenuItem];
+	
+	theMenuItem = [[[NSMenuItem alloc] initWithTitle:NSLocalizedString(@"Strikethrough",nil) action:@selector(strikethroughNV:) keyEquivalent:@""] autorelease];
 	[theMenuItem setTarget:self];
 	[formatMenu addItem:theMenuItem];
 	
@@ -548,6 +557,15 @@ copyRTFType:
 	alternateAttributeValue:[NSNumber numberWithInt:NSUnderlineStyleSingle]];
 	
 	[[self undoManager] setActionName:NSLocalizedString(@"Underline",nil)];
+}
+
+- (void)strikethroughNV:(id)sender {
+	
+	//we don't respond to the font panel, so underline it ourselves
+	[self applyStyleOfTrait:0 alternateAttributeName:NSStrikethroughStyleAttributeName
+	alternateAttributeValue:[NSNumber numberWithInt:NSUnderlineStyleSingle]];
+	
+	[[self undoManager] setActionName:NSLocalizedString(@"Strikethrough",nil)];
 }
 
 #define STROKE_WIDTH_FOR_BOLD (-3.50)
@@ -1035,9 +1053,11 @@ copyRTFType:
 	
 	SEL action = [menuItem action];
 	if (action == @selector(defaultStyle:) ||
-		action == @selector(bold:) ||
-		action == @selector(italic:) ||
-		action == @selector(underlineNV:)) {
+			action == @selector(monospacedStyle:) ||
+			action == @selector(bold:) ||
+  		action == @selector(italic:) ||
+	  	action == @selector(underlineNV:) || 
+		  action == @selector(strikethroughNV:)) {
 		
 		NSRange effectiveRange = NSMakeRange(0,0), range = [self selectedRange];
 		NSDictionary *attrs = nil;
@@ -1058,12 +1078,16 @@ copyRTFType:
 		BOOL menuItemState = NO;
 		if (action == @selector(defaultStyle:)) {
 			menuItemState = [attrs isEqualToDictionary:[prefsController noteBodyAttributes]];
+		} else if (action == @selector(monospacedStyle:)) {
+			// TODO: implement the monospace check (probably checking the font)
 		} else if (action == @selector(bold:)) {
 			menuItemState = [attrs attributesHaveFontTrait:NSBoldFontMask orAttribute:NSStrokeWidthAttributeName];
 		} else if (action == @selector(italic:)) {
 			menuItemState = [attrs attributesHaveFontTrait:NSItalicFontMask orAttribute:NSObliquenessAttributeName];
 		} else if (action == @selector(underlineNV:)) {
 			menuItemState = [attrs attributesHaveFontTrait:0 orAttribute:NSUnderlineStyleAttributeName];
+		} else if (action == @selector(strikethroughNV:)) {
+			menuItemState = [attrs attributesHaveFontTrait:0 orAttribute:NSStrikethroughStyleAttributeName];
 		}
 		
 		if (menuItemState && multipleAttributes)
@@ -1102,6 +1126,40 @@ copyRTFType:
 	[self setTypingAttributes:[prefsController noteBodyAttributes]];
 	
 	[[self undoManager] setActionName:NSLocalizedString(@"Plain Text Style",nil)];
+}
+
+
+- (void)monospacedStyle:(id)sender {
+	NSRange range = [self selectedRange];
+	
+	if (range.length > 0 && range.location != NSNotFound && 
+			[self shouldChangeTextInRange:range replacementString:nil]) {
+		
+		NSTextStorage *textStorage = [self textStorage];
+		[textStorage beginEditing];
+		
+		
+		// HACK: This is not an elegant way to detect monospace. But it was made in less than an hour.
+		id currentFontInSelection = [textStorage attribute:NSFontAttributeName atIndex:range.location effectiveRange:NULL];
+		NSFont *monospacedFont = [NSFont userFixedPitchFontOfSize:0];
+		
+		// TODO: check currentFontInSelection class.
+		if ([[monospacedFont familyName] compare:[currentFontInSelection familyName]] == NSOrderedSame)
+			[textStorage removeAttribute:NSFontAttributeName range:range];
+		else
+			[textStorage addAttribute:NSFontAttributeName value:monospacedFont range:range];
+		
+		// TODO: implement a better way to change the font, because the current implementation lose bold / oblique when applied.
+
+		[textStorage addLinkAttributesForRange:range];
+		
+		[textStorage endEditing];
+		[self didChangeText];
+	}
+	
+	[self setTypingAttributes:[prefsController noteBodyAttributes]];
+	
+	[[self undoManager] setActionName:NSLocalizedString(@"Monospaced Style",nil)];
 }
 
 /*- (void)suggestComplete:(id)sender {

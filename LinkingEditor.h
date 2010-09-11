@@ -56,7 +56,9 @@
 - (void)highlightRangesTemporarily:(CFArrayRef)ranges;
 - (NSRange)highlightTermsTemporarilyReturningFirstRange:(NSString*)typedString;
 - (void)defaultStyle:(id)sender;
+- (void)monospacedStyle:(id)sender;
 - (void)underlineNV:(id)sender;
+- (void)strikethroughNV:(id)sender;
 - (void)bold:(id)sender;
 - (void)italic:(id)sender;
 - (void)applyStyleOfTrait:(NSFontTraitMask)trait alternateAttributeName:(NSString*)attrName alternateAttributeValue:(id)value;
